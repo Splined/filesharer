@@ -12,7 +12,9 @@
       [%ipfs ipfs-pointer=@t]
   ==
 +$  action
-  $%  [%add-sub sub=@p]
+  $%  [%add-file =file]
+      [%remove-file name=@t]
+      [%list-tag-files tag=@tas]
       [%subscribe host=@p]
       [%leave host=@p]
   ==
