@@ -6,7 +6,6 @@
 ::  would allow 'id' as key and lookup by id. e.g. (~(get ja files) id)
 ::  no ++del:ja or ++has:ja in docs. Do these exist?
 +$  state-zero  [files=(list file:filesharer)]
-::  +$  state-zero  [files=(jar @ file:filesharer)] 
 --
 ::
 %-  agent:dbug
@@ -40,8 +39,7 @@
       ~&  >>  files.state  `this
       ::
         %list-tags
-::      ~&  >>  ~(tap in (sy (turn files.state |=(a=file:filesharer file-tags.a))))  `this
-        ~&  >>  (nub:hc (flatten:hc (turn files.state |=(a=file:filesharer file-tags.a))))  `this
+      ~&  >>  (nub:hc (flatten:hc (turn files.state |=(a=file:filesharer file-tags.a))))  `this
     ==
     ::
       %filesharer-action
@@ -51,7 +49,9 @@
       [cards this]
   ==
 ++  on-arvo  on-arvo:def
-++  on-save   on-save:def
+++  on-save
+  ^-  vase
+    !>(state)
 ++  on-load   on-load:def
 ++  on-watch
   |=  =path
@@ -59,10 +59,7 @@
   ?.  check-grps:hc
     ~|("not approved for subscription" !!)
   ?+     path  (on-watch:def path)
-  :: need to add =. to alter sub.state. then send fact?
-  ::    :-  ~  state
     [%files ~]
-::      ?>  check-grps
   ~&  >>  "got files subscription from {<src.bowl>}"  `this
   ==
 ++  on-leave  on-leave:def
@@ -80,7 +77,7 @@
     =.  files.state  (snoc files.state file.action)
       :_  state
       ~[[%give %fact ~[/files] [%atom !>(files.state)]]] 
-::
+    ::
       %remove-file
     =/  index=(unit @ud)  (find-file-index name.action)
     ?~  index
@@ -88,7 +85,23 @@
     =.  files.state  (oust [u.index 1] files.state)
       :_  state
       ~[[%give %fact ~[/files] [%atom !>(files.state)]]] 
-::
+    ::
+        %list-tag-files
+      |^  
+      ~&  >>  (skim files.state check-tags)
+    :_  state
+    ~
+      ::  compare each tag in a file to the tag from poke
+      ++  check-tags
+        |=  =file:filesharer
+        =/  tags=(list @tas)  file-tags.file
+        |-  ^-  ?
+        ?~  tags  %.n
+        ?:  =(i.tags tag.action)
+          %.y
+        $(tags t.tags)
+        --
+    ::
       %subscribe
     :_  state
     ~[[%pass /files/(scot %p host.action) %agent [host.action %filesharer] %watch /files]]
@@ -119,7 +132,7 @@
   =|  nlist=(list @tas)
   |-  ^-  (list @tas)
   ?~  olist
-  nlist
+    nlist
   $(olist t.olist, nlist (weld i.olist nlist))
 ::  remove duplicate tags from list
 ::  original list, new list, temp list
