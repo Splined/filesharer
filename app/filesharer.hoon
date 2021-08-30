@@ -1,15 +1,18 @@
 /-  filesharer
 /+  default-agent, dbug, resource, group
 |% 
++$  versioned-state
+    $%  state-0
+    ==
+::
++$  state-0  [files=(list file:filesharer)]
+::
 +$  card  card:agent:gall
-::  make files a ++jar (i.e. ++map of ++list)?
-::  would allow 'id' as key and lookup by id. e.g. (~(get ja files) id)
-::  no ++del:ja or ++has:ja in docs. Do these exist?
-+$  state-zero  [files=(list file:filesharer)]
 --
 ::
 %-  agent:dbug
-=|  state=state-zero
+=|  state-0
+=*  state  -
 ^-  agent:gall
 =<  
 |_  =bowl:gall
@@ -52,16 +55,23 @@
 ++  on-save
   ^-  vase
     !>(state)
-++  on-load   on-load:def
+++  on-load
+  |=  old-state=vase
+  ^-  (quip card _this)
+  ~&  >  '%filesharer recompiled successfully'
+  `this(state !<(versioned-state old-state))
 ++  on-watch
   |=  =path
   ^-  (quip card _this)
+  =/  tag-list=(list @tas)  (nub:hc (flatten:hc (turn files.state |=(a=file:filesharer file-tags.a))))
   ?.  check-grps:hc
     ~|("not approved for subscription" !!)
-  ?+     path  (on-watch:def path)
-    [%files ~]
-  ~&  >>  "got files subscription from {<src.bowl>}"  `this
-  ==
+  ?~  (find path tag-list)
+    (on-watch:def path)
+::  {<i.path>} gives find-fork error. How should I access the name of the wire?
+::  ~&  >>  "got files subscription to {<i.path>} from {<src.bowl>}"  `this
+  ~&  >>  "got files subscription to i.path from {<src.bowl>}"  `this
+::  ==
 ++  on-leave  on-leave:def
 ++  on-peek   on-peek:def
 ++  on-agent  on-agent:def
@@ -76,7 +86,7 @@
       %add-file
     =.  files.state  (snoc files.state file.action)
       :_  state
-      ~[[%give %fact ~[/files] [%atom !>(files.state)]]] 
+      ~[[%give %fact ~[file-tags.file.action] [%noun !>(files.state)]]] 
     ::
       %remove-file
     =/  index=(unit @ud)  (find-file-index name.action)
@@ -84,7 +94,7 @@
       ~&  >  "no file by that name"  [~ state]
     =.  files.state  (oust [u.index 1] files.state)
       :_  state
-      ~[[%give %fact ~[/files] [%atom !>(files.state)]]] 
+      ~[[%give %fact ~[/files] [%noun !>(files.state)]]] 
     ::
         %list-tag-files
       |^  
@@ -104,11 +114,11 @@
     ::
       %subscribe
     :_  state
-    ~[[%pass /files/(scot %p host.action) %agent [host.action %filesharer] %watch /files]]
+    ~[[%pass /(scot %tas tag.action)/(scot %p host.action) %agent [host.action %filesharer] %watch /(scot %tas tag.action)]]
     ::
       %leave
     :_  state
-    ~[[%pass /files/(scot %p host.action) %agent [host.action %filesharer] %leave ~]]
+    ~[[%pass /(scot %tas tag.action)/(scot %p host.action) %agent [host.action %filesharer] %leave ~]]
   ==
 ++  check-grps
   =/  my-grps  ~(scry-groups group bowl)

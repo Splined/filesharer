@@ -15,7 +15,7 @@
   $%  [%add-file =file]
       [%remove-file name=@t]
       [%list-tag-files tag=@tas]
-      [%subscribe host=@p]
-      [%leave host=@p]
+      [%subscribe host=@p tag=@tas]
+      [%leave host=@p tag=@tas]
   ==
 --
