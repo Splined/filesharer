@@ -86,7 +86,7 @@
       %add-file
     =.  files.state  (snoc files.state file.action)
       :_  state
-      ~[[%give %fact ~[file-tags.file.action] [%noun !>(files.state)]]] 
+      ~[[%give %fact ~[file-tags.file.action] [%filesharer-file !>(file.action)]]] 
     ::
       %remove-file
     =/  index=(unit @ud)  (find-file-index name.action)
@@ -94,7 +94,7 @@
       ~&  >  "no file by that name"  [~ state]
     =.  files.state  (oust [u.index 1] files.state)
       :_  state
-      ~[[%give %fact ~[/files] [%noun !>(files.state)]]] 
+      ~[[%give %fact ~[/files] [%t !>(+.action)]]] 
     ::
         %list-tag-files
       |^  
