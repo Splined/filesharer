@@ -30,16 +30,9 @@
   ?+    mark  (on-poke:def mark vase)
       %noun
     ?+    q.vase  (on-poke:def mark vase)
-        %print-state
-      ~&  >>  state
-      ~&  >>>  bowl  `this
-      ::
         %print-grps
       =/  grps=(set resource:resource)  ~(scry-groups group bowl)
       ~&  >>  grps  `this
-      ::
-        %print-files
-      ~&  >>  files.state  `this
       ::
         %list-tags
       ~&  >>  (nub:hc (flatten:hc (turn files.state |=(a=file:filesharer file-tags.a))))  `this
@@ -84,9 +77,11 @@
   ^-  (quip card _state)
   ?-    -.action
       %add-file
+    =/  paths=(list path)  (turn file-tags.file.action |=(a=@tas [a ~]))
+    ~&  >>  paths
     =.  files.state  (snoc files.state file.action)
       :_  state
-      ~[[%give %fact ~[file-tags.file.action] [%filesharer-file !>(file.action)]]] 
+      ~[[%give %fact paths [%filesharer-file !>(file.action)]]] 
     ::
       %remove-file
     =/  index=(unit @ud)  (find-file-index name.action)
@@ -113,6 +108,7 @@
         --
     ::
       %subscribe
+    ~&  >>  tag.action
     :_  state
     ~[[%pass /(scot %tas tag.action)/(scot %p host.action) %agent [host.action %filesharer] %watch /(scot %tas tag.action)]]
     ::
