@@ -60,14 +60,36 @@
   ?.  check-grps:hc
     ~|("not approved for subscription" !!)
   ?~  (find path tag-list)
+::  This should be a message to subscriber. using on-agent?
+    ~&  >>  "no files with tag {<path>}"
     (on-watch:def path)
-::  {<i.path>} gives find-fork error. How should I access the name of the wire?
-::  ~&  >>  "got files subscription to {<i.path>} from {<src.bowl>}"  `this
-  ~&  >>  "got files subscription to i.path from {<src.bowl>}"  `this
+  ~&  >>  "got files subscription to {<path>} from {<src.bowl>}"  `this
 ::  ==
 ++  on-leave  on-leave:def
 ++  on-peek   on-peek:def
-++  on-agent  on-agent:def
+++  on-agent
+  |=  [=wire =sign:agent:gall]
+  ^-  (quip card _this)
+::  ?+  wire  (on-agent:def wire sign)
+  ~&  >>  wire
+::  ?~  (find [-:wire]~ tag-list)
+::    (on-agent:def wire sign)
+  ?-    -.sign
+      %poke-ack   (on-agent:def wire sign)
+      %watch-ack  (on-agent:def wire sign)
+      %kick
+    ~&  >>>  "kicked from {<wire>} on {<src.bowl>}"
+    `this
+  ::
+      %fact
+      ~&  >>  sign
+    `this
+::  =^  cards  state
+::    =*  vase  q.cage.sign
+::  possibly use separate 'update-action' type
+::    (handle-update:hc !<(action:filesharer q.cage.sign))
+::    [cards this]
+  ==
 ++  on-fail   on-fail:def
 --
 ::  start helper core
@@ -85,37 +107,47 @@
     ::
       %remove-file
     =/  index=(unit @ud)  (find-file-index name.action)
+    ~&  >>  +.action
     ?~  index
       ~&  >  "no file by that name"  [~ state]
+    =/  ftags=(list @tas)  file-tags:(snag u.index files.state)
+    =/  paths=(list path)  (turn ftags |=(a=@tas [a ~]))
     =.  files.state  (oust [u.index 1] files.state)
+    ~&  >>  paths :: (kick-from-tags paths)
       :_  state
-      ~[[%give %fact ~[/files] [%t !>(+.action)]]] 
+      ~[[%give %fact paths [%noun !>(+.action)]]] 
     ::
-        %list-tag-files
-      |^  
+      %list-tag-files
+    |^  
       ~&  >>  (skim files.state check-tags)
     :_  state
     ~
-      ::  compare each tag in a file to the tag from poke
-      ++  check-tags
-        |=  =file:filesharer
-        =/  tags=(list @tas)  file-tags.file
-        |-  ^-  ?
-        ?~  tags  %.n
-        ?:  =(i.tags tag.action)
-          %.y
-        $(tags t.tags)
-        --
+    ::  compare each tag in a file to the tag from poke and return ? whether present.
+    ++  check-tags
+      |=  =file:filesharer
+      =/  tags=(list @tas)  file-tags.file
+      |-  ^-  ?
+      ?~  tags  %.n
+      ?:  =(i.tags tag.action)
+        %.y
+      $(tags t.tags)
+      --
     ::
       %subscribe
-    ~&  >>  tag.action
+    ~&  >  `path`[tag.action ~]
     :_  state
-    ~[[%pass /(scot %tas tag.action)/(scot %p host.action) %agent [host.action %filesharer] %watch /(scot %tas tag.action)]]
+    ~[[%pass `path`[tag.action ~] %agent [host.action %filesharer] %watch `path`[tag.action ~]]]
     ::
       %leave
     :_  state
-    ~[[%pass /(scot %tas tag.action)/(scot %p host.action) %agent [host.action %filesharer] %leave ~]]
+    ~[[%pass `path`[tag.action ~] %agent [host.action %filesharer] %leave ~]]
   ==
+::  Inital guess at kicking subs from no longer existant tags.  **gives mint-nice error**
+::  ++  kick-from-tags
+::    |=  paths=(list path)
+::    ^-  (list card)
+::    ?~  paths  ~
+::    ~[[%give %kick paths src.bowl]]
 ++  check-grps
   =/  my-grps  ~(scry-groups group bowl)
   =/  gs  ~(tap in my-grps)
