@@ -66,7 +66,7 @@
   ~&  >>  "got files subscription to {<path>} from {<src.bowl>}"  `this
 ::  ==
 ++  on-leave  on-leave:def
-++  on-peek   on-peek:def
+++  on-peek   on-peek:def 
 ++  on-agent
   |=  [=wire =sign:agent:gall]
   ^-  (quip card _this)
@@ -106,6 +106,7 @@
       ~[[%give %fact paths [%filesharer-file !>(file.action)]]] 
     ::
       %remove-file
+    |^
     =/  index=(unit @ud)  (find-file-index name.action)
     ~&  >>  +.action
     ?~  index
@@ -113,9 +114,26 @@
     =/  ftags=(list @tas)  file-tags:(snag u.index files.state)
     =/  paths=(list path)  (turn ftags |=(a=@tas [a ~]))
     =.  files.state  (oust [u.index 1] files.state)
-    ~&  >>  paths :: (kick-from-tags paths)
-      :_  state
-      ~[[%give %fact paths [%noun !>(+.action)]]] 
+    =/  tag-list=(list @tas)  (nub (flatten (turn files.state |=(a=file:filesharer file-tags.a))))
+    =/  kicks=card  (generate-kicks ftags tag-list)
+    :_  state
+      ~[[%give %fact paths [%noun !>(+.action)]] kicks] 
+    ::    
+    ++  generate-kicks
+      |=  [ft=(list @tas) tl=(list @tas)]
+      =|  paths=(list path)
+      |-  ^-  card
+      ?~  ft
+        [%give %kick paths ~]
+      ?:  (check-tag i.ft tl)
+        $(ft t.ft)
+      $(paths (snoc paths `path`~[i.ft]), ft t.ft)
+    ::  compare each tag in new state to the tag from file and return ? whether present.
+    ++  check-tag
+      |=  [ft=@tas tl=(list @tas)]
+      ^-  ?
+      (lien tl |=(a=@tas =(a ft)))
+    --
     ::
       %list-tag-files
     |^  
@@ -142,12 +160,6 @@
     :_  state
     ~[[%pass `path`[tag.action ~] %agent [host.action %filesharer] %leave ~]]
   ==
-::  Inital guess at kicking subs from no longer existant tags.  **gives mint-nice error**
-::  ++  kick-from-tags
-::    |=  paths=(list path)
-::    ^-  (list card)
-::    ?~  paths  ~
-::    ~[[%give %kick paths src.bowl]]
 ++  check-grps
   =/  my-grps  ~(scry-groups group bowl)
   =/  gs  ~(tap in my-grps)
