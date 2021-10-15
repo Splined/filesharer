@@ -5,7 +5,7 @@
     $%  state-0
     ==
 ::
-+$  state-0  [files=(list file:filesharer)]
++$  state-0  [%0 wl=whitelist:filesharer files=(list file:filesharer)] 
 ::
 +$  card  card:agent:gall
 --
@@ -51,22 +51,27 @@
 ++  on-load
   |=  old-state=vase
   ^-  (quip card _this)
-  ~&  >  '%filesharer recompiled successfully'
-  `this(state !<(versioned-state old-state))
+  ~&  [dap.bowl %load]
+  =/  prev  !<(versioned-state old-state)
+  ?-  -.prev
+      %0
+      ~&  >>>  '%0'
+      `this(state prev)
+  ::
+  ==
 ++  on-watch
   |=  =path
   ^-  (quip card _this)
   =/  tag-list=(list @tas)  (nub:hc (flatten:hc (turn files.state |=(a=file:filesharer file-tags.a))))
-  ?.  check-grps:hc
+  ?.  (check-wl:hc src.bowl)
     ~|("not approved for subscription" !!)
   ?~  (find path tag-list)
-::  This should be a message to subscriber. using on-agent?
     ~&  >>  "no files with tag {<path>}"
     (on-watch:def path)
   ~&  >>  "got files subscription to {<path>} from {<src.bowl>}"  `this
 ::  ==
 ++  on-leave  on-leave:def
-++  on-peek   on-peek:def 
+++  on-peek   on-peek:def
 ++  on-agent
   |=  [=wire =sign:agent:gall]
   ^-  (quip card _this)
@@ -98,6 +103,15 @@
   |=  =action:filesharer
   ^-  (quip card _state)
   ?-    -.action
+      %add-user
+    =.  users.wl.state  (~(put in users.wl.state) ship.action)
+      `state
+    ::
+      %remove-user
+    =.  users.wl.state  (~(del in users.wl.state) ship.action)
+    :_  state
+    ~[[%give %kick ~ `ship.action]]
+    ::
       %add-file
     =/  paths=(list path)  (turn file-tags.file.action |=(a=@tas [a ~]))
     ~&  >>  paths
@@ -160,15 +174,29 @@
     :_  state
     ~[[%pass `path`[tag.action ~] %agent [host.action %filesharer] %leave ~]]
   ==
+:: Is ship in the whitelist or a member of a group in the whitelist?
+++  check-wl
+  |=  =ship
+  ?:  |((check-grps ship) (check-usr ship))
+    %.y
+  %.n
 ++  check-grps
-  =/  my-grps  ~(scry-groups group bowl)
-  =/  gs  ~(tap in my-grps)
+  |=  =ship
+::  =/  my-grps  ~(scry-groups group bowl)
+  =/  gs  ~(tap in groups.wl)
 ::  ~&  >  "in check-grps arm"
   |-
   ?~  gs  %.n
-  ?:  (~(is-member group bowl) src.bowl i.gs)
+  ?:  (~(is-member group bowl) ship i.gs)
     %.y
   $(gs t.gs)
+++  check-usr
+  |=  =ship
+  =/  us  ~(tap in users.wl)
+  ?~  us  %.n
+  ?~  (find ~[ship] us)
+    %.n
+  %.y
 ++  find-file-index
   |=  filename=@t
   ^-  (unit @ud)

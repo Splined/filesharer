@@ -1,3 +1,4 @@
+/-  resource
 |%
 +$  file
   $:  name=@t
@@ -11,8 +12,14 @@
       [%clay clay-pointer=wire]
       [%ipfs ipfs-pointer=@t]
   ==
++$  whitelist
+  $:  users=(set ship)
+      groups=(set resource:resource)
+  ==
 +$  action
-  $%  [%add-file =file]
+  $%  [%add-user =ship]
+      [%remove-user =ship]
+      [%add-file =file]
       [%remove-file name=@t]
       [%list-tag-files tag=@tas]
       [%subscribe host=@p tag=@tas]
