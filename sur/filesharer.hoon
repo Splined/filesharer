@@ -19,6 +19,8 @@
 +$  action
   $%  [%add-user =ship]
       [%remove-user =ship]
+      [%add-group group=resource:resource]
+      [%remove-group group=resource:resource]
       [%add-file =file]
       [%remove-file name=@t]
       [%list-tag-files tag=@tas]

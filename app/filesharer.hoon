@@ -71,7 +71,13 @@
   ~&  >>  "got files subscription to {<path>} from {<src.bowl>}"  `this
 ::  ==
 ++  on-leave  on-leave:def
-++  on-peek   on-peek:def
+++  on-peek
+  |=  pax=path
+  ^-  (unit (unit cage))
+  ?+    pax  (on-peek:def pax)
+      [%x %files ~]
+    ``noun+!>(files)
+  ==
 ++  on-agent
   |=  [=wire =sign:agent:gall]
   ^-  (quip card _this)
@@ -109,8 +115,35 @@
     ::
       %remove-user
     =.  users.wl.state  (~(del in users.wl.state) ship.action)
+    ?:  (check-wl ship.action)
+      `state
     :_  state
-    ~[[%give %kick ~ `ship.action]]
+      ~[[%give %kick ~ `ship.action]]
+    ::
+      %add-group
+::    `state(groups.wl.state (~(uni in groups.wl.state) group.action))
+    =.  groups.wl.state  (~(uni in groups.wl.state) (silt ~[group.action]))
+      `state
+    ::
+      %remove-group
+    |^
+    =/  users=(list ship)  ~(tap in (~(members group bowl) group.action))
+    =.  groups.wl.state  (~(del in groups.wl.state) group.action)
+    =/  kicked=(list ship)  (skip users check-wl)
+    =/  kicks=(list card)  (generate-kicks kicked)
+    :_  state
+      kicks
+    ++  generate-kicks
+      |=  users=(list ship)
+      =|  kicks=(list card)  
+      |-  ^-  (list card)
+      ?~  users
+        kicks
+      %=  $
+        kicks  (snoc kicks [%give %kick ~ `i.users])
+        users  t.users
+      ==
+    --
     ::
       %add-file
     =/  paths=(list path)  (turn file-tags.file.action |=(a=@tas [a ~]))
@@ -173,6 +206,9 @@
       %leave
     :_  state
     ~[[%pass `path`[tag.action ~] %agent [host.action %filesharer] %leave ~]]
+::      %peek-files
+::    :_  state
+::    .^(list file) %gx /[(scot %p our.bowl)]/[app]/[(scot %da now.bowl)]/files/noun
   ==
 :: Is ship in the whitelist or a member of a group in the whitelist?
 ++  check-wl
