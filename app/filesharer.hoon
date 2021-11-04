@@ -72,20 +72,33 @@
 ::  ==
 ++  on-leave  on-leave:def
 ++  on-peek
-  |=  pax=path
+  |=  =path
   ^-  (unit (unit cage))
-  ?+    pax  (on-peek:def pax)
-      [%x %files ~]
-    ``noun+!>(files)
-  ==
+  |^  ?+  path  (on-peek:def path)
+        [%x %files ~]
+      ``noun+!>((turn files.state |=(a=file:filesharer name.a)))
+        [%x %files @tas ~]
+      ``noun+!>((skim-tag [files.state i.t.t.path]))
+        [%x %test ~]
+      ``noun+!>(?~(files.state ~ i.files.state))
+      ==
+++  skim-tag
+    |=  [a=(list file:filesharer) b=@tas]
+    =|  file-names=(list @t)
+    ^-  (list @t)
+    |-
+    ?~  a 
+      file-names
+    ?:  (lien file-tags.i.a |=(a=@tas =(a b)))
+      $(file-names (snoc file-names name.i.a), a t.a)
+    $(a t.a)
+  --
 ++  on-agent
   |=  [=wire =sign:agent:gall]
   ^-  (quip card _this)
 ::  ?+  wire  (on-agent:def wire sign)
-  ~&  >>  wire
-::  ?~  (find [-:wire]~ tag-list)
-::    (on-agent:def wire sign)
-  ?-    -.sign
+::    [@ %test ~]
+    ?-    -.sign
       %poke-ack   (on-agent:def wire sign)
       %watch-ack  (on-agent:def wire sign)
       %kick
@@ -100,7 +113,8 @@
 ::  possibly use separate 'update-action' type
 ::    (handle-update:hc !<(action:filesharer q.cage.sign))
 ::    [cards this]
-  ==
+    ==
+::  ==
 ++  on-fail   on-fail:def
 --
 ::  start helper core
@@ -121,7 +135,6 @@
       ~[[%give %kick ~ `ship.action]]
     ::
       %add-group
-::    `state(groups.wl.state (~(uni in groups.wl.state) group.action))
     =.  groups.wl.state  (~(uni in groups.wl.state) (silt ~[group.action]))
       `state
     ::
@@ -159,6 +172,7 @@
     ?~  index
       ~&  >  "no file by that name"  [~ state]
     =/  ftags=(list @tas)  file-tags:(snag u.index files.state)
+    ::  std lib can replace paths with (turn ftags (late ~))
     =/  paths=(list path)  (turn ftags |=(a=@tas [a ~]))
     =.  files.state  (oust [u.index 1] files.state)
     =/  tag-list=(list @tas)  (nub (flatten (turn files.state |=(a=file:filesharer file-tags.a))))
@@ -206,9 +220,22 @@
       %leave
     :_  state
     ~[[%pass `path`[tag.action ~] %agent [host.action %filesharer] %leave ~]]
-::      %peek-files
-::    :_  state
-::    .^(list file) %gx /[(scot %p our.bowl)]/[app]/[(scot %da now.bowl)]/files/noun
+::  Abandoning the idea of transfering data by pokes. This is considerd bad practice in Gall.
+      %peek-files
+    =/  =path  (weld /(scot %p target.action) pax.action) 
+    :_  state
+    ~[[%pass path %agent [target.action %filesharer] %poke %filesharer-action !>([%peek-reply src.bowl pax.action])]]
+      %peek-reply
+::  should check if poke is from someone in whitelist
+::  pass info to ++on-peek with a scry 
+    =/  =path  (weld /(scot %p src.bowl) pax.action)
+    =/  files=*  (scry-for noun pax.action)
+    =/  task  [%poke %filesharer-action !>([%peek-display files])]
+    :_  state
+    ~[[%pass path %agent [target.action %filesharer] task]]
+      %peek-display
+    ~&  >  "Test info goes here: {<info.action>}"
+    `state
   ==
 :: Is ship in the whitelist or a member of a group in the whitelist?
 ++  check-wl
@@ -239,6 +266,15 @@
   =/  id  (mug filename)
   =/  id-list  (turn files.state |=(a=file:filesharer id.a))  
   (find ~[id] id-list)
+++  scry-for
+  |*  [=mold =path]
+  .^  mold
+    %gx
+    (scot %p our.bowl)
+    %filesharer
+    (scot %da now.bowl)
+    (weld path /noun)
+    ==
 ::  flattens a list of lists
 ::  original list, new list
 ++  flatten

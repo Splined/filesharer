@@ -24,6 +24,9 @@
       [%add-file =file]
       [%remove-file name=@t]
       [%list-tag-files tag=@tas]
+      [%peek-files target=ship pax=path]
+      [%peek-reply target=ship pax=path]
+      [%peek-display info=*]
       [%subscribe host=@p tag=@tas]
       [%leave host=@p tag=@tas]
   ==
