@@ -16,6 +16,10 @@
   $:  users=(set ship)
       groups=(set resource:resource)
   ==
++$  source
+  $:  =ship
+      content=(set file)
+  ==
 +$  action
   $%  [%add-user =ship]
       [%remove-user =ship]
@@ -23,11 +27,15 @@
       [%remove-group group=resource:resource]
       [%add-file =file]
       [%remove-file name=@t]
+      [%remove-source =ship]  :: for testing, remove 
       [%list-tag-files tag=@tas]
-      [%peek-files target=ship pax=path]
-      [%peek-reply target=ship pax=path]
-      [%peek-display info=*]
       [%subscribe host=@p tag=@tas]
       [%leave host=@p tag=@tas]
+  ==
++$  server-update
+  $%  [%add-file =file]
+      [%remove-file =file]
+      [%add-source =source]
+      [%remove-source =ship]
   ==
 --

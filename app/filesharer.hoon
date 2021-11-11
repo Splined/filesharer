@@ -1,3 +1,7 @@
+::  Backend for the 'filesharer agent'. Initial design intent is to share file links for between ships, not the files themselves.
+::  State consists of a whitelist of users (ships) and groups, a list of shared files and associated data. A jug of subscriptions (ships) and their files was added after considering the impact on UX of retrieving this as needed.
+::  This also meant that subscription was by file tag. This has been replaced by subscription to /update, which handles all information moved between ships.  Tag subs will be kept in case there is a front end use for them.
+::  Todo: combine files.state and sources.state.  There's no reason these need to be seperate and combining would seem to meet percept A7 <https://urbit.org/blog/precepts>
 /-  filesharer
 /+  default-agent, dbug, resource, group
 |% 
@@ -5,7 +9,7 @@
     $%  state-0
     ==
 ::
-+$  state-0  [%0 wl=whitelist:filesharer files=(list file:filesharer)] 
++$  state-0  [%0 wl=whitelist:filesharer files=(list file:filesharer) sources=(jug ship file:filesharer)] 
 ::
 +$  card  card:agent:gall
 --
@@ -29,6 +33,7 @@
   ^-  (quip card _this)
   ?+    mark  (on-poke:def mark vase)
       %noun
+    ?>  =(our src):bowl
     ?+    q.vase  (on-poke:def mark vase)
         %print-grps
       =/  grps=(set resource:resource)  ~(scry-groups group bowl)
@@ -65,10 +70,16 @@
   =/  tag-list=(list @tas)  (nub:hc (flatten:hc (turn files.state |=(a=file:filesharer file-tags.a))))
   ?.  (check-wl:hc src.bowl)
     ~|("not approved for subscription" !!)
+  ?:  =(path /updates)
+  =/  data=source:filesharer  [our.bowl (silt files.state)]
+  =/  =cage  [%filesharer-server-update !>([%add-source data])]
+  :_  this
+    ~[[%give %fact ~ cage]] 
   ?~  (find path tag-list)
     ~&  >>  "no files with tag {<path>}"
     (on-watch:def path)
-  ~&  >>  "got files subscription to {<path>} from {<src.bowl>}"  `this
+  ~&  >>  "got files subscription to {<path>} from {<src.bowl>}"
+  `this
 ::  ==
 ++  on-leave  on-leave:def
 ++  on-peek
@@ -96,25 +107,41 @@
 ++  on-agent
   |=  [=wire =sign:agent:gall]
   ^-  (quip card _this)
-::  ?+  wire  (on-agent:def wire sign)
-::    [@ %test ~]
-    ?-    -.sign
-      %poke-ack   (on-agent:def wire sign)
-      %watch-ack  (on-agent:def wire sign)
-      %kick
-    ~&  >>>  "kicked from {<wire>} on {<src.bowl>}"
-    `this
+  ?+  wire  (on-agent:def wire sign)
+    [%updates ~]
+    ?+  -.sign  (on-agent:def wire sign)
+        %kick
+      ~&  >>>  "kicked from {<wire>} on {<src.bowl>}"
+      `this
   ::
-      %fact
-      ~&  >>  sign
-    `this
-::  =^  cards  state
-::    =*  vase  q.cage.sign
-::  possibly use separate 'update-action' type
-::    (handle-update:hc !<(action:filesharer q.cage.sign))
-::    [cards this]
+        %fact
+      ?+  p.cage.sign  (on-agent:def wire sign)
+          %filesharer-server-update
+::      =+  !<(=source:filesharer q.cage.sign)
+        =/  resp  !<(=server-update:filesharer q.cage.sign)
+        :: change this to ?- after implementing all options
+        ?-  -.resp
+            %add-source
+          =/  data=source:filesharer  +.resp
+          =/  files=(list file.filesharer)  ~(tap in content.data)
+          =/  s  `(jug ship file.filesharer)`(~(gas ju sources.state) (turn files |=(=file.filesharer [ship.data file])))
+          [~ this(sources s)]
+            %remove-source
+          =/  data  +.resp
+          =/  s  `(jug ship file.filesharer)`(~(del by sources) data)
+          [~ this(sources s)]
+            %add-file
+          =/  data=file:filesharer  +.resp
+          =/  s  `(jug ship file.filesharer)`(~(put ju sources) src.bowl data)
+          [~ this(sources s)]
+            %remove-file
+          =/  data=file:filesharer  +.resp
+          =/  s  `(jug ship file.filesharer)`(~(del ju sources) src.bowl data)
+          [~ this(sources s)]
+        ==
+      ==  
     ==
-::  ==
+  ==
 ++  on-fail   on-fail:def
 --
 ::  start helper core
@@ -122,10 +149,10 @@
 ++  handle-action
   |=  =action:filesharer
   ^-  (quip card _state)
-  ?-    -.action
+  ?-  -.action
       %add-user
     =.  users.wl.state  (~(put in users.wl.state) ship.action)
-      `state
+    `state
     ::
       %remove-user
     =.  users.wl.state  (~(del in users.wl.state) ship.action)
@@ -136,7 +163,7 @@
     ::
       %add-group
     =.  groups.wl.state  (~(uni in groups.wl.state) (silt ~[group.action]))
-      `state
+    `state
     ::
       %remove-group
     |^
@@ -162,8 +189,11 @@
     =/  paths=(list path)  (turn file-tags.file.action |=(a=@tas [a ~]))
     ~&  >>  paths
     =.  files.state  (snoc files.state file.action)
-      :_  state
-      ~[[%give %fact paths [%filesharer-file !>(file.action)]]] 
+    =/  =cage  [%filesharer-server-update !>([%add-file file.action])]
+    :_  state
+::  tried to combine this with below %give but errored out. Can there be two seperate %give cards sent at once?
+::  [%give %fact paths [%filesharer-file !>(file.action)]]
+      ~[[%give %fact ~[/updates] cage]]
     ::
       %remove-file
     |^
@@ -171,14 +201,19 @@
     ~&  >>  +.action
     ?~  index
       ~&  >  "no file by that name"  [~ state]
+    =/  data=file:filesharer  (snag u.index files.state)
+    ::  check and clean up subs
     =/  ftags=(list @tas)  file-tags:(snag u.index files.state)
-    ::  std lib can replace paths with (turn ftags (late ~))
     =/  paths=(list path)  (turn ftags |=(a=@tas [a ~]))
     =.  files.state  (oust [u.index 1] files.state)
     =/  tag-list=(list @tas)  (nub (flatten (turn files.state |=(a=file:filesharer file-tags.a))))
     =/  kicks=card  (generate-kicks ftags tag-list)
+    :: for updating client state
+    =/  =cage  [%filesharer-server-update !>([%remove-file data])]
     :_  state
-      ~[[%give %fact paths [%noun !>(+.action)]] kicks] 
+::  tried to combine this with below %give. Can there be two seperate %give cards sent at once?
+::      ~[[%give %fact paths [%noun !>(+.action)]] kicks] 
+      ~[[%give %fact ~[/updates] cage]]
     ::    
     ++  generate-kicks
       |=  [ft=(list @tas) tl=(list @tas)]
@@ -196,11 +231,14 @@
       (lien tl |=(a=@tas =(a ft)))
     --
     ::
+      %remove-source
+    =/  s  `(jug ship file.filesharer)`(~(del by sources) ship.action)
+    [~ state(sources s)]
+    ::
       %list-tag-files
     |^  
       ~&  >>  (skim files.state check-tags)
-    :_  state
-    ~
+    `state
     ::  compare each tag in a file to the tag from poke and return ? whether present.
     ++  check-tags
       |=  =file:filesharer
@@ -215,27 +253,15 @@
       %subscribe
     ~&  >  `path`[tag.action ~]
     :_  state
-    ~[[%pass `path`[tag.action ~] %agent [host.action %filesharer] %watch `path`[tag.action ~]]]
+      ~[[%pass `path`[tag.action ~] %agent [host.action %filesharer] %watch `path`[tag.action ~]]]
     ::
       %leave
-    :_  state
-    ~[[%pass `path`[tag.action ~] %agent [host.action %filesharer] %leave ~]]
-::  Abandoning the idea of transfering data by pokes. This is considerd bad practice in Gall.
-      %peek-files
-    =/  =path  (weld /(scot %p target.action) pax.action) 
-    :_  state
-    ~[[%pass path %agent [target.action %filesharer] %poke %filesharer-action !>([%peek-reply src.bowl pax.action])]]
-      %peek-reply
-::  should check if poke is from someone in whitelist
-::  pass info to ++on-peek with a scry 
-    =/  =path  (weld /(scot %p src.bowl) pax.action)
-    =/  files=*  (scry-for noun pax.action)
-    =/  task  [%poke %filesharer-action !>([%peek-display files])]
-    :_  state
-    ~[[%pass path %agent [target.action %filesharer] task]]
-      %peek-display
-    ~&  >  "Test info goes here: {<info.action>}"
-    `state
+    ?.  =(tag.action %updates)
+      :_  state
+        ~[[%pass `path`[tag.action ~] %agent [host.action %filesharer] %leave ~]]
+    =/  s  `(jug ship file.filesharer)`(~(del by sources) host.action)
+    :_   state(sources s)
+      ~[[%pass `path`[tag.action ~] %agent [host.action %filesharer] %leave ~]]
   ==
 :: Is ship in the whitelist or a member of a group in the whitelist?
 ++  check-wl
