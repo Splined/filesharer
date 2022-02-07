@@ -1,7 +1,20 @@
 ::  Backend for the 'filesharer agent'. Initial design intent is to share file links for between ships, not the files themselves.
 ::  State consists of a whitelist of users (ships) and groups, a list of shared files and associated data. A jug of subscriptions (ships) and their files was added after considering the impact on UX of retrieving this as needed.
 ::  This also meant that subscription was by file tag. This has been replaced by subscription to /update, which handles all information moved between ships.  Tag subs will be kept in case there is a front end use for them.
-::  Todo: combine files.state and sources.state.  There's no reason these need to be seperate and combining would seem to meet percept A7 <https://urbit.org/blog/precepts>
+::
+::      scry endpoints (all %noun marks)
+::
+::    x  /files                  (list @t)   list of local shared files
+::    x  /tags                   (list @t)   list of local tags
+::    x  /files/[tag]            (list @t)   list of local files with [tag]
+::
+::    x  /sources                (set ship)  remote ships sharing files
+::    x  /src-files              (list file)  list of remote files
+::    x  /src-files/[ship]       (set file)  remote files from [ship]
+::
+::
+::TODO:  combine files.state and sources.state.  There's no reason these need to be seperate and combining would seem to meet percept A7 <https://urbit.org/blog/precepts>
+::
 /-  filesharer
 /+  default-agent, dbug, resource, group
 |% 
@@ -86,14 +99,44 @@
   |=  =path
   ^-  (unit (unit cage))
   |^  ?+  path  (on-peek:def path)
+        ::  return all file names under this @p
+        ::  .^((list @t) %gx /=filesharer=/files/noun)
+        :: *** crashes dojo if files.state is empty. Need to handle ~ case. ***
         [%x %files ~]
       ``noun+!>((turn files.state |=(a=file:filesharer name.a)))
+        ::  return all tags under this @p
+        ::  .^((list @t) %gx /=filesharer=/tags/noun)
+        :: *** crashes dojo if files.state is empty. Need to handle ~ case. ***
+        [%x %tags ~]
+      ``noun+!>((nub:hc (flatten:hc (turn files.state |=(a=file:filesharer file-tags.a)))))
+        ::  return all file names with tag under this @p (doesn't crash when empty)
+        ::  .^((list @t) %gx /=filesharer=/files/csv/noun)
         [%x %files @tas ~]
       ``noun+!>((skim-tag [files.state i.t.t.path]))
-        [%x %test ~]
-      ``noun+!>(?~(files.state ~ i.files.state))
+        ::  return all remote @p's
+        ::  .^((set ship) %gx /=filesharer=/sources/noun)
+        [%x %sources ~]
+      ``noun+!>(~(key by sources.state))
+        ::  return all tags under source @p's
+        ::  .^((list @t) %gx /=filesharer=/src-tags/noun)
+::        [%x %scr-tags ~]
+::      :^  ~  ~  %noun
+::      !>  ^-  (list @t)
+::      ~(val by sources.state) returns a list of set of files
+::      need to extract tags from each set and build list
+::      then flatten list
+        ::  return all files under source @p's
+        ::  .^(* %gx /=filesharer=/src-files/noun)
+        [%x %src-files ~]
+      ``noun+!>(~(val by sources.state))
+        ::  return all files under given source @p
+        ::  .^((set file.f) %gx /=filesharer=/src-files/(scot %p ~del)/noun)
+        [%x %src-files @ta ~]
+      =/  uship=(unit @p)  (slaw %p i.t.t.path)
+      ``noun+!>((~(get ju sources.state) ?~(uship ~zod u.uship)))
       ==
-++  skim-tag
+    ::  return names of all files in list a, with tag b
+  ++  skim-tag
     |=  [a=(list file:filesharer) b=@tas]
     =|  file-names=(list @t)
     ^-  (list @t)
@@ -112,14 +155,14 @@
     ?+  -.sign  (on-agent:def wire sign)
         %kick
       ~&  >>>  "kicked from {<wire>} on {<src.bowl>}"
-      `this
+      =/  s  `(jug ship file.filesharer)`(~(del by sources) src.bowl)
+      [~ this(sources s)]
   ::
         %fact
       ?+  p.cage.sign  (on-agent:def wire sign)
           %filesharer-server-update
 ::      =+  !<(=source:filesharer q.cage.sign)
         =/  resp  !<(=server-update:filesharer q.cage.sign)
-        :: change this to ?- after implementing all options
         ?-  -.resp
             %add-source
           =/  data=source:filesharer  +.resp
@@ -144,7 +187,9 @@
   ==
 ++  on-fail   on-fail:def
 --
+::
 ::  start helper core
+::
 |_  bowl=bowl:gall
 ++  handle-action
   |=  =action:filesharer
@@ -231,10 +276,6 @@
       (lien tl |=(a=@tas =(a ft)))
     --
     ::
-      %remove-source
-    =/  s  `(jug ship file.filesharer)`(~(del by sources) ship.action)
-    [~ state(sources s)]
-    ::
       %list-tag-files
     |^  
       ~&  >>  (skim files.state check-tags)
@@ -292,15 +333,6 @@
   =/  id  (mug filename)
   =/  id-list  (turn files.state |=(a=file:filesharer id.a))  
   (find ~[id] id-list)
-++  scry-for
-  |*  [=mold =path]
-  .^  mold
-    %gx
-    (scot %p our.bowl)
-    %filesharer
-    (scot %da now.bowl)
-    (weld path /noun)
-    ==
 ::  flattens a list of lists
 ::  original list, new list
 ++  flatten

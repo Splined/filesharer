@@ -20,6 +20,7 @@
   $:  =ship
       content=(set file)
   ==
+::  changes to local data
 +$  action
   $%  [%add-user =ship]
       [%remove-user =ship]
@@ -27,11 +28,11 @@
       [%remove-group group=resource:resource]
       [%add-file =file]
       [%remove-file name=@t]
-      [%remove-source =ship]  :: for testing, remove 
       [%list-tag-files tag=@tas]
       [%subscribe host=@p tag=@tas]
       [%leave host=@p tag=@tas]
   ==
+::  changes to source (i.e. remote ship data)
 +$  server-update
   $%  [%add-file =file]
       [%remove-file =file]
